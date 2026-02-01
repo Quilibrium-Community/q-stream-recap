@@ -19,11 +19,13 @@ class AudioProcessor:
         sample_rate: int = 16000,
         channels: int = 1,
         max_chunk_size_mb: float = 24,
+        max_chunk_duration_sec: float = 1300,
     ):
         self.bitrate = bitrate
         self.sample_rate = sample_rate
         self.channels = channels
         self.max_chunk_size_mb = max_chunk_size_mb
+        self.max_chunk_duration_sec = max_chunk_duration_sec
 
     def check_ffmpeg(self) -> bool:
         """Check if ffmpeg is available in PATH."""
@@ -83,8 +85,10 @@ class AudioProcessor:
         return os.path.getsize(file_path) / (1024 * 1024)
 
     def needs_chunking(self, file_path: str) -> bool:
-        """Check if file exceeds max chunk size."""
-        return self.get_file_size_mb(file_path) >= self.max_chunk_size_mb
+        """Check if file exceeds max chunk size or duration."""
+        size_exceeds = self.get_file_size_mb(file_path) >= self.max_chunk_size_mb
+        duration_exceeds = self.get_duration(file_path) >= self.max_chunk_duration_sec
+        return size_exceeds or duration_exceeds
 
     def calculate_chunk_duration(self, file_path: str) -> Tuple[int, float]:
         """
@@ -96,8 +100,14 @@ class AudioProcessor:
         file_size_mb = self.get_file_size_mb(file_path)
         duration = self.get_duration(file_path)
 
-        # Calculate how many chunks we need
-        num_chunks = math.ceil(file_size_mb / self.max_chunk_size_mb)
+        # Calculate chunks needed based on file size
+        chunks_by_size = math.ceil(file_size_mb / self.max_chunk_size_mb)
+
+        # Calculate chunks needed based on duration (API has max duration limit)
+        chunks_by_duration = math.ceil(duration / self.max_chunk_duration_sec)
+
+        # Use the larger of the two to satisfy both constraints
+        num_chunks = max(chunks_by_size, chunks_by_duration)
 
         # Duration per chunk
         chunk_duration = duration / num_chunks

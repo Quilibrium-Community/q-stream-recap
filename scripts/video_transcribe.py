@@ -1,6 +1,12 @@
 """
 Video transcription script.
 Downloads video from any supported platform, extracts audio, and transcribes via OpenAI Whisper API.
+
+Supports resuming from any step via --from-step flag:
+  download   - Start from beginning (download video)
+  audio      - Skip download, start from audio extraction
+  chunk      - Skip download and audio extraction, start from chunking
+  transcribe - Skip to transcription only
 """
 
 import argparse
@@ -11,8 +17,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
-from urllib.parse import urlparse
+from typing import Optional, Tuple, List
 
 import yaml
 from dotenv import load_dotenv
@@ -20,6 +25,10 @@ from openai import OpenAI
 from tqdm import tqdm
 
 from audio_processor import AudioProcessor
+
+
+# Pipeline steps in order
+STEPS = ["download", "audio", "chunk", "transcribe"]
 
 
 def load_config(config_path: str = None) -> dict:
@@ -40,7 +49,7 @@ def extract_platform_and_id(url: str) -> Tuple[str, str]:
     Returns:
         Tuple of (platform, video_id)
     """
-    parsed = urlparse(url)
+    parsed = __import__("urllib.parse", fromlist=["urlparse"]).urlparse(url)
     domain = parsed.netloc.lower().replace("www.", "")
 
     # Platform-specific ID extraction
@@ -86,6 +95,39 @@ def extract_platform_and_id(url: str) -> Tuple[str, str]:
     url_hash = hashlib.md5(url.encode()).hexdigest()[:12]
     platform = domain.split(".")[0]
     return platform, url_hash
+
+
+def find_existing_file(directory: Path, video_id: str, extension: str, pattern: str = None) -> Optional[Path]:
+    """
+    Find the most recent existing file for a video ID.
+
+    Files are named with date prefix: YYYY-MM-DD_<video_id>.<ext>
+    Returns the most recent one if multiple exist.
+    """
+    if pattern:
+        # Use custom pattern (e.g., for chunks)
+        files = list(directory.glob(pattern))
+    else:
+        # Match files ending with video_id and extension
+        files = list(directory.glob(f"*_{video_id}{extension}"))
+
+    if not files:
+        return None
+
+    # Sort by filename (date prefix means alphabetical = chronological)
+    files.sort(reverse=True)
+    return files[0]
+
+
+def find_existing_chunks(directory: Path, video_id: str) -> List[Path]:
+    """
+    Find existing audio chunks for a video ID.
+    Returns sorted list of chunk files.
+    """
+    # Match pattern: *_<video_id>_chunk_*.mp3
+    chunks = list(directory.glob(f"*_{video_id}_chunk_*.mp3"))
+    chunks.sort()
+    return chunks
 
 
 def download_video(url: str, output_dir: str, retries: int = 3, cookies_file: str = None) -> Tuple[str, dict]:
@@ -219,12 +261,33 @@ def save_metadata(
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Download and transcribe video from any supported platform"
+        description="Download and transcribe video from any supported platform",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Full pipeline from URL
+  python video_transcribe.py --url "https://twitch.tv/videos/12345"
+
+  # Resume from audio extraction (video already downloaded)
+  python video_transcribe.py --url "https://twitch.tv/videos/12345" --from-step audio
+
+  # Resume from chunking (audio already extracted)
+  python video_transcribe.py --url "https://twitch.tv/videos/12345" --from-step chunk
+
+  # Resume from transcription (chunks already created)
+  python video_transcribe.py --url "https://twitch.tv/videos/12345" --from-step transcribe
+"""
     )
     parser.add_argument("--url", required=True, help="Video URL")
     parser.add_argument("--bitrate", type=int, help="Audio bitrate in kbps")
     parser.add_argument("--output-dir", help="Output directory")
     parser.add_argument("--config", help="Path to config file")
+    parser.add_argument(
+        "--from-step",
+        choices=STEPS,
+        default="download",
+        help="Start from this step (default: download). Use to resume after failures."
+    )
 
     args = parser.parse_args()
 
@@ -236,7 +299,6 @@ def main():
 
     # Override config with CLI args
     bitrate = args.bitrate or config["audio"]["bitrate"]
-    base_output_dir = args.output_dir or "output"
 
     # Setup paths
     script_dir = Path(__file__).parent.parent
@@ -249,12 +311,12 @@ def main():
     print(f"Platform: {platform}")
     print(f"Video ID: {video_id}")
 
-    # Create date prefix for all output files (YYYY-MM-DD)
-    date_prefix = datetime.now().strftime("%Y-%m-%d")
-    file_prefix = f"{date_prefix}_{video_id}"
-    print(f"File prefix: {file_prefix}")
+    # Determine start step
+    start_step_idx = STEPS.index(args.from_step)
+    if args.from_step != "download":
+        print(f"Resuming from step: {args.from_step}")
 
-    # Check for OpenAI API key
+    # Check for OpenAI API key (needed for transcribe step)
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         print("Error: OPENAI_API_KEY not set in environment")
@@ -267,6 +329,7 @@ def main():
         sample_rate=config["audio"]["sample_rate"],
         channels=config["audio"]["channels"],
         max_chunk_size_mb=config["audio"]["max_chunk_size_mb"],
+        max_chunk_duration_sec=config["audio"].get("max_chunk_duration_sec", 1300),
     )
     if not audio_processor.check_ffmpeg():
         print("Error: ffmpeg not found in PATH")
@@ -281,42 +344,123 @@ def main():
     if cookies_file:
         cookies_file = str(script_dir / cookies_file)
 
-    # Download video
-    print(f"\n1. Downloading video...")
-    try:
-        video_path_original, info = download_video(
-            args.url,
-            str(downloads_dir),
-            retries=config["download"]["retries"],
-            cookies_file=cookies_file,
-        )
-        # Rename to include date prefix
-        video_ext = Path(video_path_original).suffix
-        video_path = downloads_dir / f"{file_prefix}{video_ext}"
-        if str(video_path_original) != str(video_path):
-            Path(video_path_original).rename(video_path)
-        print(f"   Downloaded: {video_path}")
-    except Exception as e:
-        print(f"Error downloading video: {e}")
-        return 1
+    # Initialize variables that may be set by skipped steps
+    video_path = None
+    audio_path = None
+    chunk_paths = None
+    duration = None
+    info = None
+    file_prefix = None
 
-    # Process audio
-    print(f"\n2. Processing audio...")
-    try:
-        audio_path, chunk_paths, duration = audio_processor.process_video(
-            str(video_path),
-            str(audio_dir),
-            file_prefix,
-        )
-        print(f"   Audio: {audio_path}")
+    # --- STEP 1: Download ---
+    if start_step_idx <= STEPS.index("download"):
+        # Create date prefix for all output files (YYYY-MM-DD)
+        date_prefix = datetime.now().strftime("%Y-%m-%d")
+        file_prefix = f"{date_prefix}_{video_id}"
+        print(f"File prefix: {file_prefix}")
+
+        print(f"\n1. Downloading video...")
+        try:
+            video_path_original, info = download_video(
+                args.url,
+                str(downloads_dir),
+                retries=config["download"]["retries"],
+                cookies_file=cookies_file,
+            )
+            # Rename to include date prefix
+            video_ext = Path(video_path_original).suffix
+            video_path = downloads_dir / f"{file_prefix}{video_ext}"
+            if str(video_path_original) != str(video_path):
+                Path(video_path_original).rename(video_path)
+            print(f"   Downloaded: {video_path}")
+        except Exception as e:
+            print(f"Error downloading video: {e}")
+            return 1
+    else:
+        # Find existing video file
+        print(f"\n1. Skipping download (--from-step={args.from_step})")
+        existing_video = find_existing_file(downloads_dir, video_id, ".mp4")
+        if not existing_video:
+            print(f"   Error: No existing video found for video ID '{video_id}' in {downloads_dir}")
+            print(f"   Run without --from-step to download first.")
+            return 1
+        video_path = existing_video
+        # Extract file_prefix from existing filename
+        file_prefix = existing_video.stem
+        print(f"   Using existing: {video_path}")
+        print(f"   File prefix: {file_prefix}")
+
+    # --- STEP 2: Audio extraction ---
+    if start_step_idx <= STEPS.index("audio"):
+        print(f"\n2. Processing audio...")
+        try:
+            audio_path, chunk_paths, duration = audio_processor.process_video(
+                str(video_path),
+                str(audio_dir),
+                file_prefix,
+            )
+            print(f"   Audio: {audio_path}")
+            print(f"   Duration: {duration:.1f} seconds")
+            print(f"   Chunks: {len(chunk_paths)}")
+        except Exception as e:
+            print(f"Error processing audio: {e}")
+            return 1
+    else:
+        # Find existing audio file
+        print(f"\n2. Skipping audio extraction (--from-step={args.from_step})")
+        existing_audio = find_existing_file(audio_dir, video_id, ".mp3")
+        if not existing_audio:
+            print(f"   Error: No existing audio found for video ID '{video_id}' in {audio_dir}")
+            print(f"   Run with --from-step=audio to extract audio first.")
+            return 1
+        audio_path = str(existing_audio)
+        # Get duration from existing audio
+        duration = audio_processor.get_duration(audio_path)
+        # Extract file_prefix from audio filename if not already set
+        if not file_prefix:
+            file_prefix = existing_audio.stem
+        print(f"   Using existing: {audio_path}")
         print(f"   Duration: {duration:.1f} seconds")
-        print(f"   Chunks: {len(chunk_paths)}")
-    except Exception as e:
-        print(f"Error processing audio: {e}")
-        return 1
 
-    # Transcribe
-    print(f"\n3. Transcribing...")
+    # --- STEP 3: Chunking ---
+    if start_step_idx <= STEPS.index("chunk"):
+        # Chunking is part of audio processing, but can be done separately
+        if chunk_paths is None:
+            print(f"\n3. Creating audio chunks...")
+            try:
+                chunk_paths = audio_processor.chunk_audio(
+                    audio_path,
+                    str(audio_dir),
+                    file_prefix,
+                )
+                print(f"   Chunks: {len(chunk_paths)}")
+                for chunk in chunk_paths:
+                    size = audio_processor.get_file_size_mb(chunk)
+                    print(f"     - {Path(chunk).name}: {size:.1f} MB")
+            except Exception as e:
+                print(f"Error chunking audio: {e}")
+                return 1
+        else:
+            print(f"\n3. Audio chunks already created: {len(chunk_paths)}")
+    else:
+        # Find existing chunks
+        print(f"\n3. Skipping chunking (--from-step={args.from_step})")
+        existing_chunks = find_existing_chunks(audio_dir, video_id)
+        if existing_chunks:
+            chunk_paths = [str(c) for c in existing_chunks]
+            print(f"   Using existing chunks: {len(chunk_paths)}")
+        else:
+            # No chunks found - use the main audio file if it's small enough
+            if audio_path and audio_processor.get_file_size_mb(audio_path) < audio_processor.max_chunk_size_mb:
+                chunk_paths = [audio_path]
+                print(f"   Using main audio file (no chunking needed)")
+            else:
+                print(f"   Error: No existing chunks found for video ID '{video_id}' in {audio_dir}")
+                print(f"   Run with --from-step=chunk to create chunks first.")
+                return 1
+
+    # --- STEP 4: Transcribe ---
+    print(f"\n4. Transcribing...")
     try:
         client = OpenAI(api_key=api_key)
         transcript = transcribe_audio(
@@ -333,7 +477,7 @@ def main():
     transcript_path = transcripts_dir / f"{file_prefix}_transcript.txt"
     with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(transcript)
-    print(f"\n4. Transcript saved: {transcript_path}")
+    print(f"\n5. Transcript saved: {transcript_path}")
 
     # Save metadata
     meta_path = transcripts_dir / f"{file_prefix}_meta.json"
@@ -342,8 +486,8 @@ def main():
         video_id=file_prefix,  # Use file_prefix as the ID for consistency
         platform=platform,
         url=args.url,
-        video_path=str(video_path),
-        audio_path=str(audio_path),
+        video_path=str(video_path) if video_path else "",
+        audio_path=str(audio_path) if audio_path else "",
         transcript_path=str(transcript_path),
         chunks=len(chunk_paths),
         duration=duration,

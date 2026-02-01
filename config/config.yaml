@@ -14,6 +14,8 @@ audio:
   channels: 1
   # Max chunk size in MB (must be under OpenAI's 25MB limit)
   max_chunk_size_mb: 24
+  # Max chunk duration in seconds (gpt-4o-transcribe limit is 1400s)
+  max_chunk_duration_sec: 1300
 
 youtube:
   # Default category ID (20 = Gaming, 22 = People & Blogs, 27 = Education)
