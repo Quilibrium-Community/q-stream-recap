@@ -152,4 +152,43 @@ Display to the user:
 3. The file location: `output/recaps/{file_prefix}_recap.md`
 4. Next steps: "Ready for YouTube upload? Run `/Q:youtube-upload`"
 
-Wait for user approval before considering the task complete.
+Wait for user approval before proceeding to Step 6.
+
+## Step 6: Generate Short Version
+
+After the user approves the full recap, create a shorter version for Discord/Telegram channels.
+
+### Short Version Format:
+
+```
+Hey @everyone,
+Here is a summary of the latest live stream.
+
+✨ [TITLE]
+[Short description - same as full recap]
+
+
+✅ Key topics:
+⦿ [Topic 1]
+⦿ [Topic 2]
+⦿ [Topic 3]
+⦿ [Topic 4]
+
+
+👉 Read the full summary:
+
+▶️ Watch it on YouTube (English captions):
+▶️ Watch it on X:
+```
+
+### Differences from Full Recap:
+- Opening: "Hey @everyone," instead of "Hey Q fam! Here is a summary of the latest live stream with @cass_on_mars (@QuilibriumInc founder)."
+- Remove all detailed section content (everything after "Key topics")
+- Add "👉 Read the full summary:" placeholder before the video links
+- Move YouTube/X links to the end
+
+Save the short version to: `output/recaps/{file_prefix}_recap_short.md`
+
+Display both file locations to the user:
+- Full recap: `output/recaps/{file_prefix}_recap.md`
+- Short version: `output/recaps/{file_prefix}_recap_short.md`
