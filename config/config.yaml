@@ -1,0 +1,42 @@
+# Video Transcription & Recap Workflow Configuration
+
+openai:
+  # Whisper model for transcription
+  # Options: "gpt-4o-transcribe", "whisper-1"
+  model: "gpt-4o-transcribe"
+
+audio:
+  # Audio bitrate in kbps (lower = smaller file, slightly lower quality)
+  bitrate: 64
+  # Sample rate in Hz (16000 is optimal for speech recognition)
+  sample_rate: 16000
+  # Audio channels (1 = mono, recommended for speech)
+  channels: 1
+  # Max chunk size in MB (must be under OpenAI's 25MB limit)
+  max_chunk_size_mb: 24
+
+youtube:
+  # Default category ID (20 = Gaming, 22 = People & Blogs, 27 = Education)
+  default_category: 20
+  # Privacy status: "public", "unlisted", or "private"
+  default_privacy: "unlisted"
+  # Default tags for uploaded videos
+  default_tags:
+    - "Stream"
+    - "Recap"
+    - "Transcription"
+    - "Quilibrium"
+
+paths:
+  # All paths are relative to project root
+  downloads: "output/downloads"
+  audio: "output/audio"
+  transcriptions: "output/transcriptions"
+  recaps: "output/recaps"
+
+# Download settings
+download:
+  # Number of retry attempts for failed downloads
+  retries: 3
+  # Preferred audio format (best = auto-select best quality)
+  audio_format: "best"

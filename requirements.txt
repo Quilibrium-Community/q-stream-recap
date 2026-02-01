@@ -1,0 +1,22 @@
+# Video download
+yt-dlp>=2024.1.0
+
+# OpenAI API (transcription)
+openai>=1.12.0
+
+# YouTube API
+google-api-python-client>=2.115.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Note: ffmpeg must be installed separately and available in PATH
+# Windows: winget install ffmpeg
+# Mac: brew install ffmpeg
+# Linux: apt install ffmpeg

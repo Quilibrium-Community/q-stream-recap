@@ -1,0 +1,39 @@
+# Environment and secrets
+.env
+config/youtube_secrets.json
+config/.youtube_token.json
+
+# Output files (large media)
+output/downloads/
+output/audio/
+
+# Keep transcriptions and recaps in git if desired
+# Uncomment to exclude:
+# output/transcriptions/
+# output/recaps/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
