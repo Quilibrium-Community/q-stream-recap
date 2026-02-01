@@ -79,11 +79,35 @@ Here is a summary of the latest live stream with @cass_on_mars (@QuilibriumInc f
 - Technical content: Summarize concisely
 - Non-technical content: Be more detailed and specific
 
+### Quilibrium Glossary
+
+These terms frequently appear in Quilibrium content. Use this reference to correct transcription errors:
+
+| Term | Description | Common Misspellings |
+|------|-------------|---------------------|
+| **Quilibrium** | The project name | Equilibrium, Calibrium, Quillibrium |
+| **QUIL** | Native token | Quill, Kill, Kwil |
+| **wQUIL** | Wrapped QUIL (ERC-20) | w-Quil, wrapped Quil |
+| **QStorage** | Decentralized storage service | Q Storage, Queue Storage |
+| **QQ** | SQS-style queue service | Q-Q, Cue Cue |
+| **QPing** | SNS-style notification service | Q Ping, Cuping |
+| **QKMS** | Quilibrium Key Management Service | Q-KMS, QK MS |
+| **Quorum** | Consensus mechanism | Quorom, Corum |
+| **QNS** | Quilibrium Name Service | Q-NS, QNess |
+| **Quark** | SDK for tokenizable 3D assets/game integration | Cork, Quart, Clark |
+| **QConsole** | Web console/dashboard for Q services | Q Console, Cue Console |
+| **Hypersnap** | Privacy feature for network snapshots | Hyper Snap, HyperSnap |
+| **Cassandra Heart** | Founder (@cass_on_mars) | Sandra Heart |
+
+When writing the recap, always use the correct spelling from this glossary.
+
 Save the recap to: `output/recaps/{file_prefix}_recap.md`
 
 ## Step 4: Verification Agent
 
 Launch a verification agent to compare the recap against the raw transcript.
+
+### Part A: Transcript Consistency Check
 
 The agent must check for:
 1. **Factual accuracy** - Are all claims in the recap supported by the transcript?
@@ -91,9 +115,34 @@ The agent must check for:
 3. **Correct attributions** - Are quotes and statements attributed correctly?
 4. **No hallucinations** - Is there anything in the recap not in the transcript?
 
+### Part B: Transcription Error Detection
+
+**Important context**: The recap is derived from an audio transcription of a video. Speech-to-text can mishear uncommon words, technical terms, and proper nouns.
+
+The agent must identify and verify:
+1. **Technical terminology** - Programming languages, frameworks, protocols, algorithms
+2. **Company/product names** - Especially lesser-known projects, startups, crypto projects
+3. **People's names** - Contributors, developers, public figures mentioned
+4. **Mathematical formulas or numbers** - Statistics, percentages, token amounts, dates
+5. **Code snippets or commands** - Syntax that may have been misheard
+6. **Acronyms and abbreviations** - Industry-specific terms
+
+For each suspicious or technical term found:
+- Use web search to verify correct spelling and context
+- Cross-reference with your own knowledge
+- Check if the transcribed term makes sense in context (e.g., "equilibrium" should likely be "Quilibrium")
+
+Common transcription errors to watch for:
+- Homophones (their/there, affect/effect)
+- Technical terms phonetically similar to common words
+- Project names that sound like regular words
+- Numbers that could be misheard (15 vs 50, million vs billion)
+
+### Corrections
+
 If errors are found:
 - Correct them directly in the recap file
-- Note what was corrected
+- Note what was corrected and why (transcription error vs recap error)
 
 ## Step 5: Present for Human Verification
 
