@@ -58,6 +58,28 @@ def extract_title_from_recap(recap_content: str, fallback: str = "Video Recap") 
     return fallback
 
 
+def find_latest_video(downloads_dir: Path, transcripts_dir: Path) -> tuple[str, str]:
+    """
+    Find the most recent video in downloads folder and its video ID.
+
+    Returns:
+        Tuple of (video_path, video_id)
+    """
+    # Find all MP4 files in downloads
+    mp4_files = list(downloads_dir.glob("*.mp4"))
+    if not mp4_files:
+        raise FileNotFoundError(f"No MP4 files found in {downloads_dir}")
+
+    # Sort by modification time, newest first
+    mp4_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    latest_video = mp4_files[0]
+
+    # Video ID is the filename without extension
+    video_id = latest_video.stem
+
+    return str(latest_video), video_id
+
+
 def extract_tags_from_recap(recap_content: str) -> list[str]:
     """
     Extract tags from recap content.
@@ -100,7 +122,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Upload video to YouTube with metadata from recap"
     )
-    parser.add_argument("--video-id", required=True, help="Video ID from transcription")
+    parser.add_argument("--video-id", help="Video ID from transcription (auto-detects if not specified)")
     parser.add_argument("--title", help="Custom title (overrides recap title)")
     parser.add_argument("--category", help="YouTube category ID")
     parser.add_argument("--privacy", help="Privacy status: public, unlisted, private")
@@ -113,19 +135,31 @@ def main():
 
     # Setup paths
     script_dir = Path(__file__).parent.parent
+    downloads_dir = script_dir / config["paths"]["downloads"]
     transcripts_dir = script_dir / config["paths"]["transcriptions"]
     recaps_dir = script_dir / config["paths"]["recaps"]
     secrets_path = script_dir / "config" / "youtube_secrets.json"
 
+    # Auto-detect video if not specified
+    video_id = args.video_id
+    if not video_id:
+        try:
+            video_path, video_id = find_latest_video(downloads_dir, transcripts_dir)
+            print(f"Auto-detected video: {video_id}")
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
+            print("Specify --video-id or ensure there's an MP4 in output/downloads/")
+            return 1
+
     # Load metadata
-    meta_path = transcripts_dir / f"{args.video_id}_meta.json"
+    meta_path = transcripts_dir / f"{video_id}_meta.json"
     if not meta_path.exists():
         print(f"Error: Metadata not found: {meta_path}")
         print("Run video_transcribe.py first to download and transcribe the video.")
         return 1
 
     metadata = load_metadata(str(meta_path))
-    print(f"Loaded metadata for: {metadata.get('title', args.video_id)}")
+    print(f"Loaded metadata for: {metadata.get('title', video_id)}")
 
     # Check video file exists
     video_path = metadata.get("mp4_path")
@@ -134,7 +168,7 @@ def main():
         return 1
 
     # Load recap for description
-    recap_path = recaps_dir / f"{args.video_id}_recap.md"
+    recap_path = recaps_dir / f"{video_id}_recap.md"
     if recap_path.exists():
         recap_content = load_recap(str(recap_path))
         description = recap_content
@@ -155,10 +189,19 @@ def main():
     category = args.category or str(config["youtube"]["default_category"])
     privacy = args.privacy or config["youtube"]["default_privacy"]
 
+    # Get thumbnail path
+    thumbnail_path = None
+    if config["youtube"].get("default_thumbnail"):
+        thumbnail_path = script_dir / config["youtube"]["default_thumbnail"]
+        if not thumbnail_path.exists():
+            print(f"Warning: Thumbnail not found: {thumbnail_path}")
+            thumbnail_path = None
+
     print(f"\nUpload details:")
     print(f"  Title: {title}")
     print(f"  Privacy: {privacy}")
     print(f"  Category: {category}")
+    print(f"  Thumbnail: {thumbnail_path.name if thumbnail_path else 'None'}")
     print(f"  Tags: {', '.join(tags[:5])}{'...' if len(tags) > 5 else ''}")
 
     # Check for secrets file
@@ -214,6 +257,16 @@ def main():
 
     # Get video URL
     video_url = client.get_video_url(youtube_id)
+
+    # Set thumbnail if configured
+    if thumbnail_path:
+        print(f"\n3. Setting thumbnail...")
+        try:
+            client.set_thumbnail(youtube_id, str(thumbnail_path))
+            print(f"   Thumbnail set!")
+        except Exception as e:
+            print(f"   Warning: Failed to set thumbnail: {e}")
+            print("   (Video uploaded successfully, thumbnail can be set manually)")
 
     # Update metadata with YouTube URL
     metadata["youtube_id"] = youtube_id

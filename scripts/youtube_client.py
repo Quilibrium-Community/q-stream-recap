@@ -160,6 +160,26 @@ class YouTubeClient:
         """Get YouTube video URL from ID."""
         return f"https://www.youtube.com/watch?v={video_id}"
 
+    def set_thumbnail(self, video_id: str, thumbnail_path: str) -> dict:
+        """
+        Set custom thumbnail for a video.
+
+        Args:
+            video_id: YouTube video ID
+            thumbnail_path: Path to thumbnail image (JPEG, PNG, GIF, BMP)
+
+        Returns:
+            Thumbnail resource
+        """
+        if not os.path.exists(thumbnail_path):
+            raise FileNotFoundError(f"Thumbnail not found: {thumbnail_path}")
+
+        media = MediaFileUpload(thumbnail_path, mimetype="image/png")
+        return self.service.thumbnails().set(
+            videoId=video_id,
+            media_body=media,
+        ).execute()
+
     def update_video(
         self,
         video_id: str,

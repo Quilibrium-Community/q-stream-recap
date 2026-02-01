@@ -20,6 +20,8 @@ youtube:
   default_category: 20
   # Privacy status: "public", "unlisted", or "private"
   default_privacy: "unlisted"
+  # Default thumbnail image for all uploads (relative to project root)
+  default_thumbnail: "config/q-livestream-yt-cover.png"
   # Default tags for uploaded videos
   default_tags:
     - "Stream"
@@ -40,3 +42,7 @@ download:
   retries: 3
   # Preferred audio format (best = auto-select best quality)
   audio_format: "best"
+  # Path to cookies file (Netscape format) for sites requiring authentication
+  # Export from browser using extension like "Get cookies.txt LOCALLY"
+  # Leave empty to skip cookies
+  cookies_file: "config/www.youtube.com_cookies.txt"

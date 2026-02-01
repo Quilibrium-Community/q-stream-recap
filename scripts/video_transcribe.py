@@ -60,7 +60,7 @@ def extract_platform_and_id(url: str) -> Tuple[str, str]:
         if "youtu.be" in domain:
             video_id = parsed.path.strip("/").split("/")[0]
             return "youtube", video_id
-        match = re.search(r"[?&]v=([^&]+)", parsed.query)
+        match = re.search(r"(?:^|&)v=([^&]+)", parsed.query)
         if match:
             return "youtube", match.group(1)
 
@@ -88,7 +88,7 @@ def extract_platform_and_id(url: str) -> Tuple[str, str]:
     return platform, url_hash
 
 
-def download_video(url: str, output_dir: str, retries: int = 3) -> Tuple[str, dict]:
+def download_video(url: str, output_dir: str, retries: int = 3, cookies_file: str = None) -> Tuple[str, dict]:
     """
     Download video using yt-dlp.
 
@@ -100,11 +100,18 @@ def download_video(url: str, output_dir: str, retries: int = 3) -> Tuple[str, di
     # Output template
     output_template = os.path.join(output_dir, "%(id)s.%(ext)s")
 
+    # Use python -m yt_dlp for cross-platform compatibility
+    yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
+
+    # Add cookies file if provided and exists
+    cookies_args = []
+    if cookies_file and os.path.exists(cookies_file):
+        cookies_args = ["--cookies", cookies_file]
+
     for attempt in range(retries):
         try:
             # First, get video info
-            info_cmd = [
-                "yt-dlp",
+            info_cmd = yt_dlp_cmd + cookies_args + [
                 "--dump-json",
                 "--no-download",
                 url,
@@ -112,10 +119,10 @@ def download_video(url: str, output_dir: str, retries: int = 3) -> Tuple[str, di
             result = subprocess.run(info_cmd, capture_output=True, text=True, check=True)
             info = json.loads(result.stdout)
 
-            # Download the video
-            download_cmd = [
-                "yt-dlp",
-                "-f", "bestaudio/best",  # Prefer audio-only, fallback to best
+            # Download the video (need MP4 for YouTube upload later)
+            download_cmd = yt_dlp_cmd + cookies_args + [
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "--merge-output-format", "mp4",
                 "-o", output_template,
                 "--no-playlist",
                 url,
@@ -242,6 +249,11 @@ def main():
     print(f"Platform: {platform}")
     print(f"Video ID: {video_id}")
 
+    # Create date prefix for all output files (YYYY-MM-DD)
+    date_prefix = datetime.now().strftime("%Y-%m-%d")
+    file_prefix = f"{date_prefix}_{video_id}"
+    print(f"File prefix: {file_prefix}")
+
     # Check for OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -264,14 +276,25 @@ def main():
         print("  Linux: apt install ffmpeg")
         return 1
 
+    # Get cookies file path if configured
+    cookies_file = config["download"].get("cookies_file")
+    if cookies_file:
+        cookies_file = str(script_dir / cookies_file)
+
     # Download video
     print(f"\n1. Downloading video...")
     try:
-        video_path, info = download_video(
+        video_path_original, info = download_video(
             args.url,
             str(downloads_dir),
             retries=config["download"]["retries"],
+            cookies_file=cookies_file,
         )
+        # Rename to include date prefix
+        video_ext = Path(video_path_original).suffix
+        video_path = downloads_dir / f"{file_prefix}{video_ext}"
+        if str(video_path_original) != str(video_path):
+            Path(video_path_original).rename(video_path)
         print(f"   Downloaded: {video_path}")
     except Exception as e:
         print(f"Error downloading video: {e}")
@@ -281,9 +304,9 @@ def main():
     print(f"\n2. Processing audio...")
     try:
         audio_path, chunk_paths, duration = audio_processor.process_video(
-            video_path,
+            str(video_path),
             str(audio_dir),
-            video_id,
+            file_prefix,
         )
         print(f"   Audio: {audio_path}")
         print(f"   Duration: {duration:.1f} seconds")
@@ -307,16 +330,16 @@ def main():
 
     # Save transcript
     os.makedirs(transcripts_dir, exist_ok=True)
-    transcript_path = transcripts_dir / f"{video_id}_transcript.txt"
+    transcript_path = transcripts_dir / f"{file_prefix}_transcript.txt"
     with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(transcript)
     print(f"\n4. Transcript saved: {transcript_path}")
 
     # Save metadata
-    meta_path = transcripts_dir / f"{video_id}_meta.json"
+    meta_path = transcripts_dir / f"{file_prefix}_meta.json"
     metadata = save_metadata(
         str(meta_path),
-        video_id=video_id,
+        video_id=file_prefix,  # Use file_prefix as the ID for consistency
         platform=platform,
         url=args.url,
         video_path=str(video_path),
@@ -329,6 +352,7 @@ def main():
     print(f"   Metadata saved: {meta_path}")
 
     print(f"\n✓ Complete!")
+    print(f"  File prefix: {file_prefix}")
     print(f"  Transcript: {transcript_path}")
     print(f"  Ready for recap generation.")
 
