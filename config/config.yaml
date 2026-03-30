@@ -1,9 +1,18 @@
 # Video Transcription & Recap Workflow Configuration
 
-openai:
-  # Whisper model for transcription
-  # Options: "gpt-4o-transcribe", "whisper-1"
-  model: "gpt-4o-transcribe"
+transcription:
+  # Backend: "groq" (default, open-source Whisper) or "openai"
+  backend: "groq"
+
+  # Groq settings (open-source Whisper models)
+  groq:
+    # Options: "whisper-large-v3-turbo" (faster, $0.04/hr) or "whisper-large-v3" (more accurate, $0.111/hr)
+    model: "whisper-large-v3-turbo"
+
+  # OpenAI settings (fallback)
+  openai:
+    # Options: "gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"
+    model: "gpt-4o-transcribe"
 
 audio:
   # Audio bitrate in kbps (lower = smaller file, slightly lower quality)
