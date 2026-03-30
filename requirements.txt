@@ -4,6 +4,9 @@ yt-dlp>=2024.1.0
 # OpenAI API (transcription)
 openai>=1.12.0
 
+# Groq API (transcription - open source Whisper models)
+groq>=0.9.0
+
 # YouTube API
 google-api-python-client>=2.115.0
 google-auth-oauthlib>=1.2.0
