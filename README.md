@@ -1,8 +1,8 @@
 # Q Stream Recap
 
-Automated video transcription and recap workflow for Quilibrium streams. Downloads videos from any platform, transcribes via OpenAI Whisper, generates formatted recaps with Claude, and uploads to the Quilibrium YouTube channel.
+Automated video transcription and recap workflow for Quilibrium streams. Downloads videos from any platform, transcribes via OpenAI Whisper, generates formatted recaps, and uploads to the Quilibrium YouTube channel.
 
-Built to run entirely through [Claude Code](https://claude.ai/code) chat using slash commands. No manual CLI usage needed.
+Designed to run through AI coding agents using workflow prompts. Works with [Claude Code](https://claude.ai/code), [OpenCode](https://opencode.ai), or any AI agent that can execute shell commands and follow markdown instructions.
 
 
 ## How It Works
@@ -22,9 +22,11 @@ The workflow has two independent parts:
    - Requires editor/manager access to the channel
 
 
-## Quick Start with Claude Code
+## Quick Start
 
-Once set up, the entire workflow is two commands in Claude Code chat:
+### With Claude Code
+
+Once set up, the entire workflow is two slash commands in chat:
 
 ```
 /Q:video-recap https://www.twitch.tv/videos/XXXXXXX
@@ -36,6 +38,28 @@ This downloads, transcribes, generates the recap, verifies it, and asks for your
 ```
 This generates a title, asks for approval, uploads the video, sets the thumbnail, and offers to clean up temporary files.
 
+### With Other AI Agents (OpenCode, etc.)
+
+The workflow prompts are plain markdown files in `.claude/commands/Q/`. You can feed them to any AI agent:
+
+1. Open `.claude/commands/Q/video-recap.md` and paste it as instructions to your agent along with the video URL
+2. The agent will follow the step-by-step workflow using the Python scripts
+3. For YouTube upload, use `.claude/commands/Q/youtube-upload.md`
+
+### Manual (No AI Agent)
+
+You can also run the scripts directly:
+
+```bash
+# Step 1: Download and transcribe
+python scripts/video_transcribe.py --url "https://www.twitch.tv/videos/XXXXXXX"
+
+# Step 2: Write the recap manually or with any LLM using the transcript in output/transcriptions/
+
+# Step 3: Upload to YouTube (optional)
+python scripts/upload_to_youtube.py --title "Your Title Here"
+```
+
 
 ## Setup
 
@@ -43,8 +67,8 @@ This generates a title, asks for approval, uploads the video, sets the thumbnail
 
 - [Python 3.10+](https://python.org)
 - [ffmpeg](https://ffmpeg.org) in PATH
-- [Claude Code](https://claude.ai/code) CLI or VS Code extension
 - An [OpenAI API key](https://platform.openai.com/api-keys) (for Whisper transcription)
+- An AI coding agent (optional but recommended): [Claude Code](https://claude.ai/code), [OpenCode](https://opencode.ai), or similar
 
 ### 2. Install Dependencies
 
@@ -137,7 +161,7 @@ q-stream-recap/
 │   ├── audio/                 # Extracted audio + chunks (not in git)
 │   ├── transcriptions/        # Transcripts + metadata
 │   └── recaps/                # Full + short recaps
-├── .claude/commands/Q/        # Claude Code slash commands
+├── .claude/commands/Q/        # Workflow prompts (work with any AI agent)
 ├── .env                       # API keys (not in git)
 └── requirements.txt
 ```
