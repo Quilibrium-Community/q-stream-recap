@@ -1,133 +1,167 @@
 # Q Stream Recap
 
-Automated video transcription and recap workflow for Quilibrium streams.
+Automated video transcription and recap workflow for Quilibrium streams. Downloads videos from any platform, transcribes via OpenAI Whisper, generates formatted recaps with Claude, and uploads to the Quilibrium YouTube channel.
 
-## Features
+Built to run entirely through [Claude Code](https://claude.ai/code) chat using slash commands. No manual CLI usage needed.
 
-- Download videos from any platform (Twitch, YouTube, Twitter/X, Vimeo, TikTok, etc.)
-- Transcribe via OpenAI Whisper API (gpt-4o-transcribe)
-- Generate formatted recaps using Claude
-- Upload to YouTube with metadata
+
+## How It Works
+
+The workflow has two independent parts:
+
+1. **Transcribe + Recap** (anyone can do this)
+   - Download video from Twitch, YouTube, Twitter/X, etc.
+   - Transcribe audio via OpenAI Whisper API
+   - Generate a formatted recap using Claude
+   - Verify accuracy against the transcript
+   - Output: full recap + short version for Discord/Telegram
+
+2. **Upload to YouTube** (requires Quilibrium channel access)
+   - Upload the video to the Quilibrium YouTube channel
+   - Auto-generate title, description, thumbnail, and tags
+   - Requires editor/manager access to the channel
+
+
+## Quick Start with Claude Code
+
+Once set up, the entire workflow is two commands in Claude Code chat:
+
+```
+/Q:video-recap https://www.twitch.tv/videos/XXXXXXX
+```
+This downloads, transcribes, generates the recap, verifies it, and asks for your approval.
+
+```
+/Q:youtube-upload
+```
+This generates a title, asks for approval, uploads the video, sets the thumbnail, and offers to clean up temporary files.
+
 
 ## Setup
 
-### 1. Install Dependencies
+### 1. Prerequisites
+
+- [Python 3.10+](https://python.org)
+- [ffmpeg](https://ffmpeg.org) in PATH
+- [Claude Code](https://claude.ai/code) CLI or VS Code extension
+- An [OpenAI API key](https://platform.openai.com/api-keys) (for Whisper transcription)
+
+### 2. Install Dependencies
 
 ```bash
-# Python dependencies
+git clone https://github.com/QuilibriumNetwork/q-stream-recap.git
+cd q-stream-recap
 pip install -r requirements.txt
+```
 
-# System dependency: ffmpeg
-# Windows:
+Install ffmpeg if you don't have it:
+```bash
+# Windows
 winget install ffmpeg
 
-# Mac:
+# Mac
 brew install ffmpeg
 
-# Linux:
+# Linux
 apt install ffmpeg
 ```
 
-### 2. Configure API Keys
-
-Copy the example env file and add your OpenAI API key:
+### 3. Configure OpenAI API Key
 
 ```bash
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
 ```
 
-### 3. YouTube Setup (Optional)
+Edit `.env` and add your OpenAI API key:
+```
+OPENAI_API_KEY=sk-...
+```
 
-To enable YouTube uploads:
+This is all you need to transcribe videos and generate recaps.
+
+### 4. YouTube Upload Setup (Optional)
+
+This step is only needed if you want to upload videos to the Quilibrium YouTube channel. You need to be an **editor or manager** of the channel.
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project and enable **YouTube Data API v3**
-3. Create **OAuth 2.0 credentials** (Desktop app type)
-4. Download the JSON and save as `config/youtube_secrets.json`
+2. Create a project (or use an existing one)
+3. Enable **YouTube Data API v3** in the Library
+4. Go to **OAuth consent screen** and configure it:
+   - Set to **Production** (not Testing, otherwise tokens expire after 7 days)
+   - Add the YouTube scopes
+5. Create **OAuth 2.0 credentials** (Application type: Desktop app)
+6. Download the JSON and save as `config/youtube_secrets.json`
+7. Run authentication once via Claude Code or directly:
+   ```bash
+   python scripts/upload_to_youtube.py --auth-only
+   ```
+   This opens a browser for Google consent. Sign in with the account that has access to the Quilibrium YouTube channel. The token is saved locally and all future uploads are fully automatic.
 
-## Usage
 
-### Transcribe a Video
+## Contributing
 
-```bash
-python scripts/video_transcribe.py --url "https://twitch.tv/videos/12345"
-```
+Contributions are welcome! You can help by:
 
-Options:
-- `--url` - Video URL (required)
-- `--bitrate` - Audio bitrate in kbps (default: 64)
-- `--output-dir` - Output directory (default: ./output)
+- **Improving recaps**: Submit PRs with corrections to existing recaps in `output/recaps/`
+- **Adding features**: Improve the transcription or upload scripts
+- **Translating recaps**: Add translations of existing recaps
 
-### Generate Recap (Claude Command)
+You don't need YouTube channel access to contribute. The transcription and recap generation only requires an OpenAI API key.
 
-After transcription, use the Claude command to generate a recap:
-
-```
-/Q:summarize-q-stream
-```
-
-The recap will be saved to `output/recaps/{video_id}_recap.md`.
-
-### Upload to YouTube
-
-```bash
-python scripts/upload_to_youtube.py --video-id "12345"
-```
-
-Options:
-- `--video-id` - Video ID from transcription (required)
-- `--title` - Custom title (optional, extracted from recap)
-- `--category` - YouTube category ID (default: 20 = Gaming)
-- `--privacy` - public, unlisted, or private (default: unlisted)
 
 ## Configuration
 
 Edit `config/config.yaml` to customize:
 
-- Audio processing settings (bitrate, sample rate)
-- YouTube defaults (category, privacy, tags)
+- OpenAI model selection (`gpt-4o-transcribe` or `whisper-1`)
+- Audio processing settings (bitrate, sample rate, chunk size)
+- YouTube defaults (category, privacy, tags, thumbnail)
 - Output paths
+
 
 ## Project Structure
 
 ```
 q-stream-recap/
 ├── scripts/
-│   ├── video_transcribe.py   # Download + transcribe
-│   ├── audio_processor.py    # FFmpeg audio processing
-│   ├── upload_to_youtube.py  # YouTube upload
-│   └── youtube_client.py     # YouTube API client
+│   ├── video_transcribe.py    # Download + transcribe pipeline
+│   ├── audio_processor.py     # FFmpeg audio extraction/chunking
+│   ├── upload_to_youtube.py   # YouTube upload with OAuth
+│   └── youtube_client.py      # YouTube API client
 ├── config/
-│   ├── config.yaml           # Main configuration
-│   └── youtube_secrets.json  # YouTube OAuth (not in git)
-├── prompts/
-│   └── recap_instructions.md # Recap formatting template
+│   ├── config.yaml            # Main configuration
+│   ├── youtube_secrets.json   # YouTube OAuth secrets (not in git)
+│   └── .youtube_token.json    # Cached OAuth token (not in git)
 ├── output/
-│   ├── downloads/            # Downloaded videos
-│   ├── audio/                # Extracted audio
-│   ├── transcriptions/       # Raw transcripts + metadata
-│   └── recaps/               # Generated recaps
-├── .claude/commands/Q/       # Claude slash commands
-├── .env                      # API keys (not in git)
+│   ├── downloads/             # Downloaded MP4 files (not in git)
+│   ├── audio/                 # Extracted audio + chunks (not in git)
+│   ├── transcriptions/        # Transcripts + metadata
+│   └── recaps/                # Full + short recaps
+├── .claude/commands/Q/        # Claude Code slash commands
+├── .env                       # API keys (not in git)
 └── requirements.txt
 ```
 
-## Workflow
-
-1. **Download & Transcribe**: `python scripts/video_transcribe.py --url <URL>`
-2. **Generate Recap**: `/Q:summarize-q-stream` with transcript
-3. **Review & Edit**: Check `output/recaps/{video_id}_recap.md`
-4. **Upload**: `python scripts/upload_to_youtube.py --video-id <ID>`
 
 ## Supported Platforms
 
 Uses yt-dlp which supports 1000+ sites including:
 - Twitch (VODs and clips)
-- YouTube (videos, live streams, shorts)
+- YouTube
 - Twitter/X
 - Vimeo
 - TikTok
-- Facebook
-- Instagram
-- Reddit
+- Facebook, Instagram, Reddit, and more
+
+
+## Recap Format
+
+Recaps follow a specific format for the Quilibrium community:
+- Greeting: "Hey Q fam!" with speaker attribution
+- Bullet points use "⦿"
+- Section titles use "✅"
+- Main title uses "✨"
+- Tone: informative, third person, non-technical focus
+- Project name is always "Quilibrium" (transcription misspellings are auto-corrected)
+
+A short version is also generated for Discord/Telegram sharing.
