@@ -96,7 +96,16 @@ These terms frequently appear in Quilibrium content. Use this reference to corre
 | **QNS** | Quilibrium Name Service | Q-NS, QNess |
 | **Quark** | SDK for tokenizable 3D assets/game integration | Cork, Quart, Clark |
 | **QConsole** | Web console/dashboard for Q services | Q Console, Cue Console |
-| **Hypersnap** | Privacy feature for network snapshots | Hyper Snap, HyperSnap |
+| **HyperSnap** | Farcaster protocol fork | Hyper Snap, Hypersnap |
+| **Klearu** | MPC machine learning framework and runtime | Claro, Clairo, Clear-o |
+| **MetaVM** | Zero-knowledge RISC-V VM | Meta VM, Meta-VM |
+| **MegaRPC** | Privacy-preserving RPC service | Mega RPC, mega RPC |
+| **Ferret** | MPC garbled circuit library | Feret, Farret |
+| **QClient** | Quilibrium client tool | Q Client, Cue Client |
+| **Neynar** | Farcaster API/infrastructure company | Nadar, Nader, Naynar |
+| **Merkle** (Manufactory) | Original Farcaster development company | Merkel, Merkyl |
+| **Q Inc.** / **Quilibrium, Inc.** | The company | QInk, Q Ink, Quink |
+| **a16z** | Andreessen Horowitz (VC firm) | 16Zs, A16Z, a16Zs |
 | **Cassandra Heart** | Founder (@cass_on_mars) | Sandra Heart |
 
 When writing the recap, always use the correct spelling from this glossary.
