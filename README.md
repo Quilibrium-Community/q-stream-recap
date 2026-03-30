@@ -67,7 +67,7 @@ python scripts/upload_to_youtube.py --title "Your Title Here"
 
 - [Python 3.10+](https://python.org)
 - [ffmpeg](https://ffmpeg.org) in PATH
-- An [OpenAI API key](https://platform.openai.com/api-keys) (for Whisper transcription)
+- A [Groq API key](https://console.groq.com/keys) (free, for transcription) or an [OpenAI API key](https://platform.openai.com/api-keys)
 - An AI coding agent (optional but recommended): [Claude Code](https://claude.ai/code), [OpenCode](https://opencode.ai), or similar
 
 ### 2. Install Dependencies
@@ -90,18 +90,18 @@ brew install ffmpeg
 apt install ffmpeg
 ```
 
-### 3. Configure OpenAI API Key
+### 3. Configure Transcription API Key
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+By default, the pipeline uses **Groq** (free, open-source Whisper models). Get a free API key at [console.groq.com/keys](https://console.groq.com/keys) and add it to `.env`:
 ```
-OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk_...
 ```
 
-This is all you need to transcribe videos and generate recaps.
+Alternatively, you can use OpenAI by setting `backend: "openai"` in `config/config.yaml` and adding your OpenAI key to `.env`.
 
 ### 4. YouTube Upload Setup (Optional)
 

@@ -31,7 +31,7 @@ System requirement: `ffmpeg` must be in PATH.
 ### Pipeline Flow
 1. **Download**: `video_transcribe.py` uses yt-dlp to fetch video from URL
 2. **Audio Processing**: `AudioProcessor` (audio_processor.py) extracts audio via ffmpeg, chunks if >24MB
-3. **Transcription**: OpenAI Whisper API (`gpt-4o-transcribe`) processes chunks sequentially
+3. **Transcription**: Groq Whisper API (default) or OpenAI processes chunks sequentially
 4. **Recap Generation**: Claude slash command `/Q:video-recap` generates formatted recap from transcript
 5. **Upload**: `upload_to_youtube.py` authenticates via OAuth and uploads with metadata from recap
 
