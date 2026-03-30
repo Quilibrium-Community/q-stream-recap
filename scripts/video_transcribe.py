@@ -1,6 +1,6 @@
 """
 Video transcription script.
-Downloads video from any supported platform, extracts audio, and transcribes via OpenAI Whisper API.
+Downloads video from any supported platform, extracts audio, and transcribes via Groq or OpenAI Whisper API.
 
 Supports resuming from any step via --from-step flag:
   download   - Start from beginning (download video)
@@ -25,6 +25,44 @@ from openai import OpenAI
 from tqdm import tqdm
 
 from audio_processor import AudioProcessor
+
+
+def create_transcription_client(config: dict) -> tuple:
+    """
+    Create the appropriate transcription client based on config.
+
+    Returns:
+        Tuple of (client, model_name, backend_name)
+    """
+    backend = config.get("transcription", {}).get("backend", "groq")
+
+    if backend == "groq":
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "GROQ_API_KEY not set in environment.\n"
+                "Get your free key at: https://console.groq.com/keys\n"
+                "Then add it to your .env file."
+            )
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        model = config.get("transcription", {}).get("groq", {}).get("model", "whisper-large-v3-turbo")
+        return client, model, "groq"
+
+    elif backend == "openai":
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY not set in environment.\n"
+                "Get your key at: https://platform.openai.com/api-keys\n"
+                "Then add it to your .env file."
+            )
+        client = OpenAI(api_key=api_key)
+        model = config.get("transcription", {}).get("openai", {}).get("model", "gpt-4o-transcribe")
+        return client, model, "openai"
+
+    else:
+        raise ValueError(f"Unknown transcription backend: {backend}. Use 'groq' or 'openai'.")
 
 
 # Pipeline steps in order
@@ -198,8 +236,8 @@ def download_video(url: str, output_dir: str, retries: int = 3, cookies_file: st
 
 def transcribe_audio(
     audio_paths: list[str],
-    client: OpenAI,
-    model: str = "gpt-4o-transcribe",
+    client,
+    model: str = "whisper-large-v3-turbo",
 ) -> str:
     """
     Transcribe audio file(s) using OpenAI Whisper API.
@@ -315,13 +353,6 @@ Examples:
     start_step_idx = STEPS.index(args.from_step)
     if args.from_step != "download":
         print(f"Resuming from step: {args.from_step}")
-
-    # Check for OpenAI API key (needed for transcribe step)
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("Error: OPENAI_API_KEY not set in environment")
-        print("Please set it in your .env file")
-        return 1
 
     # Check for ffmpeg
     audio_processor = AudioProcessor(
@@ -462,11 +493,12 @@ Examples:
     # --- STEP 4: Transcribe ---
     print(f"\n4. Transcribing...")
     try:
-        client = OpenAI(api_key=api_key)
+        client, model, backend_name = create_transcription_client(config)
+        print(f"   Backend: {backend_name} ({model})")
         transcript = transcribe_audio(
             chunk_paths,
             client,
-            model=config["openai"]["model"],
+            model=model,
         )
     except Exception as e:
         print(f"Error transcribing: {e}")
