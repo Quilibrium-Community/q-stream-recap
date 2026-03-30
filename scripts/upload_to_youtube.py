@@ -5,6 +5,7 @@ Uploads video to YouTube with metadata from recap file.
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -14,6 +15,12 @@ import yaml
 from tqdm import tqdm
 
 from youtube_client import YouTubeClient
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 
 def load_config(config_path: str = None) -> dict:
@@ -36,6 +43,30 @@ def load_recap(recap_path: str) -> str:
     """Load recap markdown content."""
     with open(recap_path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def format_youtube_description(short_recap: str) -> str:
+    """
+    Transform short recap into YouTube description format.
+    Removes Discord/Telegram-specific lines and adds Quilibrium links.
+    """
+    lines = short_recap.strip().splitlines()
+    filtered = []
+    for line in lines:
+        # Skip Discord greeting and YouTube/X watch links
+        if line.startswith("Hey @everyone") or line.startswith("Here is a summary"):
+            continue
+        if line.startswith("▶️"):
+            continue
+        filtered.append(line)
+
+    # Remove leading blank lines
+    while filtered and not filtered[0].strip():
+        filtered.pop(0)
+
+    result = "\n".join(filtered).rstrip()
+    result += "\n\n⭐️ Quilibrium links: https://pxl.to/quilibrium"
+    return result
 
 
 def extract_title_from_recap(recap_content: str, fallback: str = "Video Recap") -> str:
@@ -102,13 +133,14 @@ def extract_tags_from_recap(recap_content: str) -> list[str]:
         section_tags = re.split(r"[,\n•⦿-]", tag_section.group(1))
         tags.extend(t.strip() for t in section_tags if t.strip())
 
-    # Deduplicate and limit to 500 chars total (YouTube limit)
+    # Deduplicate, skip overly long tags, and limit to 500 chars total (YouTube limit)
     seen = set()
     unique_tags = []
     total_chars = 0
     for tag in tags:
         tag_clean = tag.strip().lower()
-        if tag_clean and tag_clean not in seen:
+        # YouTube rejects tags longer than ~30 chars; skip full sentences
+        if tag_clean and tag_clean not in seen and len(tag_clean) <= 30:
             if total_chars + len(tag_clean) + 1 <= 500:
                 seen.add(tag_clean)
                 unique_tags.append(tag.strip())
@@ -127,6 +159,7 @@ def main():
     parser.add_argument("--category", help="YouTube category ID")
     parser.add_argument("--privacy", help="Privacy status: public, unlisted, private")
     parser.add_argument("--config", help="Path to config file")
+    parser.add_argument("--auth-only", action="store_true", help="Only test authentication, don't upload")
 
     args = parser.parse_args()
 
@@ -139,6 +172,28 @@ def main():
     transcripts_dir = script_dir / config["paths"]["transcriptions"]
     recaps_dir = script_dir / config["paths"]["recaps"]
     secrets_path = script_dir / "config" / "youtube_secrets.json"
+
+    # Auth-only mode: skip video detection entirely
+    if args.auth_only:
+        # Check for secrets file
+        if not secrets_path.exists():
+            print(f"\nError: YouTube secrets not found: {secrets_path}")
+            return 1
+        token_path = secrets_path.parent / ".youtube_token.json"
+        print("Authenticating with YouTube...")
+        if token_path.exists():
+            print("  Found cached token, will auto-refresh if needed")
+        else:
+            print("  No cached token - browser will open for first-time authorization")
+        try:
+            client = YouTubeClient(str(secrets_path))
+            client.authenticate()
+            print("\n✓ Authentication successful! Token saved for future use.")
+            print(f"  Token location: {token_path}")
+            return 0
+        except Exception as e:
+            print(f"\nError authenticating: {e}")
+            return 1
 
     # Auto-detect video if not specified
     video_id = args.video_id
@@ -168,8 +223,16 @@ def main():
         return 1
 
     # Load recap for description
+    # Prefer short recap for YouTube description, fall back to full recap
     recap_path = recaps_dir / f"{video_id}_recap.md"
-    if recap_path.exists():
+    short_recap_path = recaps_dir / f"{video_id}_recap_short.md"
+    if short_recap_path.exists():
+        description = format_youtube_description(load_recap(str(short_recap_path)))
+        # Also load full recap for title/tags extraction
+        recap_content = load_recap(str(recap_path)) if recap_path.exists() else description
+        title = args.title or extract_title_from_recap(recap_content, metadata.get("title", "Video"))
+        tags = extract_tags_from_recap(recap_content)
+    elif recap_path.exists():
         recap_content = load_recap(str(recap_path))
         description = recap_content
         title = args.title or extract_title_from_recap(recap_content, metadata.get("title", "Video"))
@@ -215,13 +278,27 @@ def main():
         return 1
 
     # Initialize YouTube client
+    token_path = secrets_path.parent / ".youtube_token.json"
     print(f"\n1. Authenticating with YouTube...")
+    if token_path.exists():
+        print("   Found cached token, will auto-refresh if needed")
+    else:
+        print("   No cached token found - browser will open for first-time authorization")
+
     try:
         client = YouTubeClient(str(secrets_path))
         client.authenticate()
         print("   Authenticated!")
     except Exception as e:
-        print(f"Error authenticating: {e}")
+        print(f"\nError authenticating: {e}")
+        print("\nTroubleshooting:")
+        print("  - Is the Google Cloud project's OAuth consent screen published (not in Testing mode)?")
+        print("    If in Testing mode, add your Google account as a test user.")
+        print("  - Is the YouTube Data API v3 enabled in the Cloud Console?")
+        print("  - Is the secrets file for a 'Desktop app' client (not 'Web application')?")
+        if token_path.exists():
+            print(f"  - Try deleting the cached token and re-authenticating:")
+            print(f"    rm {token_path}")
         return 1
 
     # Upload with progress bar
@@ -279,7 +356,7 @@ def main():
         with open(recap_path, "a", encoding="utf-8") as f:
             f.write(f"\n\n---\nYouTube: {video_url}\n")
 
-    print(f"\n✓ Upload complete!")
+    print(f"\nUpload complete!")
     print(f"  Video URL: {video_url}")
     print(f"  Status: {privacy}")
 

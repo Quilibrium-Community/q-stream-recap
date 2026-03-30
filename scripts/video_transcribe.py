@@ -495,7 +495,7 @@ Examples:
     )
     print(f"   Metadata saved: {meta_path}")
 
-    print(f"\n✓ Complete!")
+    print(f"\nComplete!")
     print(f"  File prefix: {file_prefix}")
     print(f"  Transcript: {transcript_path}")
     print(f"  Ready for recap generation.")
