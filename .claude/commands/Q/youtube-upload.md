@@ -59,3 +59,20 @@ After upload completes, report to the user:
 The YouTube URL is also automatically saved to:
 - `output/transcriptions/{video_id}_meta.json`
 - Appended to `output/recaps/{video_id}_recap.md`
+
+### Step 5: Cleanup
+
+After a successful upload, ask the user:
+
+> "Upload complete! Do you want me to clean up the temporary files?
+> - **Audio files** (MP3 + chunks in `output/audio/`): these are intermediate files from transcription and are no longer needed.
+> - **Video file** (MP4 in `output/downloads/`): keeping this allows re-uploading if needed, but it's large (~3-4GB).
+>
+> I can delete audio only (recommended), delete both, or keep everything."
+
+Based on the user's response:
+- **Audio only** (default/recommended): delete all files matching `{file_prefix}*` in `output/audio/`
+- **Both**: delete audio files AND the MP4 in `output/downloads/`
+- **Keep**: do nothing
+
+Use bash `rm` to delete the files. Always confirm what was deleted.
