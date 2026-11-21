@@ -1,0 +1,210 @@
+# Quilibrium glossary: single source of truth for correct spellings.
+#
+# Used in three places:
+#   1. video_transcribe.py   -> "prompt: true" terms are given to Whisper as a vocabulary hint.
+#   2. clean_transcript.py   -> "auto" variants are replaced, "check" variants are only flagged.
+#   3. /Q:video-recap skill  -> recap and verification use the same spellings.
+#
+# Fields:
+#   term    correct spelling, exactly as it must appear
+#   auto    mishearings that are NOT real words in this context. Safe to replace
+#           mechanically (whole word, case-insensitive).
+#   check   mishearings that ARE real words (quill, equilibrium...). Never replaced
+#           automatically: each hit is shown with context and a person or Claude decides.
+#   prompt  true = also give this term to Whisper as a hint
+#   note    what it is, and where the spelling comes from
+#
+# Spellings follow the official docs (QConsole and QStorage have no space there, although
+# the older Quily cleaning guide wrote "Q Console" and "Q Storage"). Add new terms here
+# when a stream introduces them. Checked against the Quily docs on 2026-11-21.
+
+terms:
+  # Project, token, company
+  - term: Quilibrium
+    auto: [Quillibrium, Calibrium, Quilibrim, Kwilibrium, Quillibruim]
+    check: [Equilibrium, Quilibrio]
+    prompt: true
+    note: The project name. "equilibrium" in a Quilibrium stream is almost always this.
+  - term: QUIL
+    check: [quill, quil, kill, kwil]
+    prompt: true
+    note: Native token, all caps.
+  - term: wQUIL
+    auto: [w-quil, w-quill, wrapped quill, wrapped quil]
+    prompt: true
+    note: Wrapped QUIL (ERC-20). "wrapped QUIL" in prose is also fine.
+  - term: Quilibrium, Inc.
+    auto: [QInk, Q Ink, Quink]
+    note: The company. "Q Inc." is also used.
+  - term: Cassandra Heart
+    auto: [Sandra Heart]
+    prompt: true
+    note: Founder, @cass_on_mars. "Cassie" is her nickname.
+
+  # Services and tools
+  - term: QStorage
+    auto: [Q Storage, Queue Storage, Cue Storage]
+    prompt: true
+    note: S3-compatible storage. Official docs use QStorage.
+  - term: QConsole
+    auto: [Q Console, Queue Console, Cue Console]
+    prompt: true
+    note: Web console. Official docs use QConsole.
+  - term: QKMS
+    auto: [Q-KMS, Q K M S, QK MS]
+    check: [QMS]
+    prompt: true
+    note: Quilibrium Key Management Service, uses MPC.
+  - term: QNS
+    auto: [Q&S, Q n s]
+    prompt: true
+    note: Quilibrium Name Service.
+  - term: QQ
+    check: [Q-Q, cue cue]
+    note: SQS-style queue service.
+  - term: QPing
+    auto: [Q Ping, Cuping]
+    note: SNS-style notification service.
+  - term: QClient
+    auto: [Q Client, Qclient, Cue Client]
+    prompt: true
+    note: Command-line client.
+  - term: QWeb services
+    auto: [Q web services, Q Web Services, queue web services]
+    note: The managed services umbrella.
+  - term: Quorum
+    auto: [Quorom, Quaram, Corum]
+    check: [quora]
+    prompt: true
+    note: The messenger app. NOT to be confused with the lowercase word "quorum" in consensus talk.
+  - term: Quorum Mobile
+    auto: [Quora Mobile, Quorum mobile]
+    note: The mobile app.
+  - term: Coppice
+    check: [Copis, COPIS, Coppis, Copeis]
+    prompt: true
+    note: Post-quantum E2EE chat SDK that replaces the Channels SDK. Spelling from the Quily Discord docs (2026-11).
+  - term: MegaRPC
+    auto: [Mega RPC, mega RPC, MegaRBC]
+    prompt: true
+    note: Privacy-preserving RPC service using oblivious RAM.
+  - term: Klearu
+    auto: [Klaru, Clairo, Klairu, Clear-o]
+    check: [Claro]
+    prompt: true
+    note: Private AI / MPC machine learning framework.
+  - term: MetaVM
+    auto: [Metavium, Meta VM, Meta-VM]
+    prompt: true
+    note: Zero-knowledge and MPC virtual machine (RISC-V, EVM, SVM).
+  - term: Ferret
+    check: [Feret, Farret]
+    prompt: true
+    note: MPC garbled circuit library.
+  - term: Quark
+    check: [Cork, Quart, Clark]
+    note: SDK for tokenizable 3D assets.
+  - term: Hypersnap
+    auto: [Hyper Snap, Hyper-snap]
+    prompt: true
+    note: Farcaster protocol fork. Lowercase "s" matches the latest docs and the speaker.
+  - term: Falcon
+    note: Post-quantum signature scheme (Falcon-512). Not related to the rocket.
+  - term: Commonware
+    auto: [Common Ware]
+    prompt: true
+    note: Open consensus library that replaced the custom HotStuff.
+  - term: HotStuff
+    auto: [Hot Stuff]
+    prompt: true
+    note: The BFT consensus algorithm used up to 2.1.0.24.
+  - term: libp2p
+    auto: [lib P2P, lib-p2p]
+    note: Peer-to-peer networking library.
+
+  # People, companies and projects around Quilibrium
+  - term: Farcaster
+    auto: [Farkaster, Farcastor, Far caster, Farcastr]
+    prompt: true
+    note: The social protocol.
+  - term: Neynar
+    auto: [Nadar, Naynar]
+    check: [Nader]
+    prompt: true
+    note: Farcaster infrastructure company.
+  - term: Network School
+    auto: [Bology's network school]
+    prompt: true
+    note: Balaji's Network School, which acquired Farcaster in 2026-10.
+  - term: Balaji
+    auto: [Bology]
+    note: Balaji Srinivasan.
+  - term: a16z
+    auto: [16Zs, A16Z, a16Zs]
+    note: Andreessen Horowitz.
+  - term: Merkle
+    check: [Merkel, Merkyl]
+    note: Merkle trees. Also the original Farcaster company (Merkle Manufactory).
+
+  # Other networks and services mentioned in streams
+  - term: Kaspa
+    auto: [Caspa]
+    prompt: true
+  - term: Bittensor
+    auto: [Bit Tensor]
+    prompt: true
+  - term: Infura
+    auto: [Infira]
+    prompt: true
+  - term: Solana
+    auto: [Salana]
+  - term: Arbitrum
+    auto: [Arbitum]
+  - term: Tezos
+    auto: [Tzos]
+  - term: Godot
+    auto: [Go dot]
+  - term: CoinGecko
+    auto: [Coin Gecko]
+
+  # Technical terms
+  - term: MPC
+    note: Multi-party computation.
+  - term: VDF
+    check: [BDF, VDEF]
+    note: Verifiable delay function, used at the global level.
+  - term: mainnet
+    auto: [main net, mainet]
+  - term: testnet
+    auto: [test net]
+  - term: hypergraph
+    auto: [hyper graph, hyperraph]
+  - term: app shards
+    auto: [appshards]
+  - term: Reed-Solomon
+    auto: [Read Solomon, Reed Solomon]
+  - term: secp256k1
+    auto: [SECP 256 256K1, SECP256k1]
+  - term: TEE
+    check: [tee]
+    note: Trusted execution environment.
+  - term: Shamir
+    auto: [sha mir]
+    note: As in Shamir secret sharing.
+  - term: Feldman
+    check: [felt man]
+    note: As in Feldman VSS.
+  - term: VSS
+    auto: [v s s]
+    note: Verifiable secret sharing.
+  - term: QCL
+    auto: [q c l]
+    note: Quilibrium's language/runtime.
+  - term: alt-fee basis
+    auto: [alt fee basis, all fee basis]
+    note: Alternative fee mechanism for app shards.
+  - term: Fyrox
+    auto: [Fireox]
+    note: Game engine.
+  - term: Warpcast wallet
+    check: [warplet]

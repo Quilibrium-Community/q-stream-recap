@@ -57,3 +57,9 @@ download:
   # Export from browser using extension like "Get cookies.txt LOCALLY"
   # Leave empty to skip cookies
   cookies_file: "config/www.youtube.com_cookies.txt"
+
+# Transcript cleaning (scripts/clean_transcript.py)
+cleaning:
+  # Docs folder of the Quily chatbot repo (relative to the project root). Its docs are
+  # the vocabulary used to spot words that need verifying. Leave empty to skip that check.
+  quily_docs: "../quily-chatbot/docs"

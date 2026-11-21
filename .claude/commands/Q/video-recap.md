@@ -17,7 +17,7 @@ Wait for completion. The script will:
 - Download the video using yt-dlp
 - Extract and optimize audio with ffmpeg
 - Chunk audio if >25MB
-- Transcribe via the configured backend (Groq Whisper by default, OpenAI as fallback)
+- Transcribe via the configured backend (Groq Whisper by default, OpenAI as fallback), giving Whisper the correct spellings from `config/glossary.yaml` as a vocabulary hint
 - Save files with date prefix: `YYYY-MM-DD_<video_id>`
 - Output: transcript, metadata, MP4, and audio files
 
@@ -25,13 +25,53 @@ If the script fails, report the error and stop.
 
 **Important**: Note the `File prefix` output from the script (e.g., `2026-02-01_abc123`). This is used for all file names.
 
-## Step 2: Read the Transcript
+## Step 2: Clean the Transcript
 
-After successful transcription, read:
-1. The transcript file: `output/transcriptions/{file_prefix}_transcript.txt`
-2. The metadata file: `output/transcriptions/{file_prefix}_meta.json`
+The raw Whisper text mishears technical names, is full of filler, and has no structure. The recap and the Quily chatbot both depend on it being right, so clean it first and use the clean version from here on. Wrong terms in a transcript become wrong answers from the chatbot.
 
-Extract the file_prefix from the script output.
+### 2a. Mechanical pass
+
+```bash
+cd d:\GitHub\Quilibrium\q-stream-recap && python scripts/clean_transcript.py output/transcriptions/{file_prefix}_transcript.txt
+```
+
+It uses `config/glossary.yaml` and writes `{file_prefix}_transcript_fixed.txt` (non-word mishearings already replaced) and `{file_prefix}_transcript_report.txt` (not committed). Read the report. It lists: the automatic fixes, real words that may be mishearings ("quill", "Claro", "BDF"), digit runs that look like mangled versions ("21025" is 2.1.0.25), and names that appear nowhere in the Quilibrium docs.
+
+### 2b. Resolve the report
+
+- Decide every "words to check" hit from its context.
+- Decode every possible version number.
+- Verify every unknown name by web search, or against the Quily docs at `../quily-chatbot/docs`. If a term cannot be confirmed, do not guess: phrase around it, or leave it out if it is not essential, and tell the user at the end which terms you could not verify.
+- Add each newly confirmed term to `config/glossary.yaml` (`auto` for non-words, `check` for real words), so the next stream benefits.
+
+### 2c. Editorial pass
+
+Read the Quily cleaning guide in full and follow it: `../quily-chatbot/.claude/skills/sync-transcripts/scripts/CLEANING-GUIDE.md`. The essentials: clean, do not summarize (about the same number of sentences as the original, minus filler); remove greetings, the legal disclaimer, the mission statement, stream housekeeping, technical difficulties and chat banter without content; replace "I" and "we" with explicit subjects ("Cassie", "the Quilibrium team"); add descriptive section headers; keep all numbers, examples, analogies and real Q&A; anchor time-sensitive statements with absolute dates ("As of November 2026"). Cassie's opinions and claims about third parties stay attributed to her.
+
+Save to `output/transcriptions/{file_prefix}_transcript_clean.md`, with this frontmatter:
+
+```yaml
+---
+title: "Descriptive title"
+source: youtube
+youtube_url:
+author: Cassandra Heart
+date: YYYY-MM-DD
+type: livestream_transcript
+topics:
+  - topic
+---
+```
+
+`youtube_url` stays empty until Step 9, when the video is uploaded. `date` is the day of the stream, which can differ from the file prefix (the prefix is the download date). Get it with `python -m yt_dlp --simulate -O "%(upload_date)s" "$ARGUMENTS"`.
+
+### 2d. Independent check
+
+Launch a reviewer agent that compares `_transcript_clean.md` with `_transcript_fixed.txt` and reports invented content, lost content, wrong numbers or versions, misspelled terms, claims that lost their attribution, and leftover first person. Fix what it finds. This text goes into a chatbot's knowledge base, so do not skip this check.
+
+### 2e. What to read next
+
+From here on, read `output/transcriptions/{file_prefix}_transcript_clean.md` and `output/transcriptions/{file_prefix}_meta.json` instead of the raw transcript.
 
 ## Step 3: Generate Recap
 
@@ -114,7 +154,7 @@ Save the recap to: `output/recaps/{file_prefix}_recap.md`
 
 ## Step 4: Verification Agent
 
-Launch a verification agent to compare the recap against the raw transcript.
+Launch a verification agent to compare the recap against the clean transcript (`_transcript_clean.md`). The agent may open `_transcript_fixed.txt` when something looks lost in cleaning.
 
 ### Part A: Transcript Consistency Check
 
@@ -159,14 +199,15 @@ Display to the user:
 1. The final recap content
 2. A summary of any corrections made during verification
 3. The file location: `output/recaps/{file_prefix}_recap.md`
-4. What happens next, in one line: "Reply 'approved' and I publish everything: GitHub page, tweet and chat texts, YouTube upload (unlisted)."
+4. What happens next, in one line: "Reply 'approved' and I publish everything: GitHub page, tweet and chat texts, YouTube upload (unlisted), and the transcript into the Quily chatbot."
 
 Then STOP and wait. If the user asks for changes, edit the plain recap, re-run the checks that apply, and ask again.
 
-**The user's approval of the recap is the go-ahead for Steps 6 to 9.** They asked (2026-11-21) that everything be ready after the recap is approved, so do not ask again at each step. The approval covers exactly this and nothing more:
+**The user's approval of the recap is the go-ahead for Steps 6 to 10.** They asked (2026-11-21) that everything be ready after the recap is approved, so do not ask again at each step. The approval covers exactly this and nothing more:
 - one commit and push to `main` of the recap files listed in Step 6
 - one YouTube upload of this video as **unlisted**
-- one final commit and push of the short texts and metadata listed in Step 9
+- one final commit and push of the short texts, metadata and clean transcript listed in Step 10
+- adding the clean transcript to the Quily chatbot repo and ingesting it, as described in Step 9
 
 It does not cover posting on X, Discord or Telegram, making the video public, or committing any other file. If a step fails, stop and report the error. Do not improvise a workaround and do not retry a publish blindly: check whether it took effect first.
 
@@ -186,6 +227,7 @@ Commit and push exactly these files, and no others (stage them by name, never `g
 - `output/recaps/{file_prefix}_recap.md`
 - `output/recaps/{file_prefix}_recap_web.md`
 - `output/transcriptions/{file_prefix}_transcript.txt`
+- `output/transcriptions/{file_prefix}_transcript_clean.md`
 - `output/transcriptions/{file_prefix}_meta.json`
 
 Commit message: short, lowercase, in the style of the repo history (for example `add recap for the 2026-11-21 livestream`). No mention of Claude or AI and no co-author line. Push to `main`. Then check the page is online:
@@ -275,14 +317,26 @@ The description comes from `_recap_short.md`, so it holds the short recap and th
 
 On success, read `youtube_url` from `output/transcriptions/{file_prefix}_meta.json` and put it on the `▶️ Watch it on YouTube (English captions):` line of `_recap_short.md`. The uploaded description is not changed by this edit, and does not need to be: the script drops the watch lines from it.
 
-## Step 9: Hand Over
+## Step 9: Add the Transcript to Quily
 
-Make the final commit and push to `main`, again staging by name: `output/recaps/{file_prefix}_recap_tweet.md`, `output/recaps/{file_prefix}_recap_short.md`, `output/transcriptions/{file_prefix}_meta.json` (it now holds the YouTube URL). Same commit style as Step 6.
+The Quily chatbot answers questions from a knowledge base that includes the livestream transcripts. Every new stream goes in right away, so the chatbot knows it. The Quily repo is a sibling folder: `../quily-chatbot` (`E:\GitHub\Quilibrium\quily-chatbot`). Do not read its `.env`.
+
+1. **Fill the link.** Put the `youtube_url` from `{file_prefix}_meta.json` into the frontmatter of `{file_prefix}_transcript_clean.md`.
+2. **Copy the file** to `../quily-chatbot/docs/transcriptions/{stream_date}_{slug}.md`. `{stream_date}` is the frontmatter `date`, and `{slug}` is a short lowercase hyphenated title, like the existing files (for example `2026-04-20_quilibrium-dev-talk-rust-rewrite-metavm-evm-consensus.md`). Stop if a file with that name already exists.
+3. **Commit and push in the Quily repo.** First check `git status` there: if anything besides this file is modified, leave it alone and stage only this one file by name. Run `git pull --rebase`, then commit with a message like `docs: add 2026-11-21 livestream transcript` and push to `main`. The Quily repo takes direct commits to `main`, and every push prints `remote: Bypassed rule violations for refs/heads/main`: that warning is expected. Same commit rules as here: no mention of Claude or AI, no co-author line, never force-push.
+4. **Ingest.** From `../quily-chatbot`, run `yarn ingest:dry` first. It must show only the new transcript as changed. Then run `yarn ingest run` (without `--clean`: that flag is only for deleted files), and finally `yarn ingest:count` to confirm. This writes to the database the live chatbot reads, which is why Step 5 lists it explicitly.
+5. If the dry run lists unexpected files, or any command fails, stop and report. Do not retry blindly: the ingestion is incremental, so first check what is already in the database.
+
+## Step 10: Hand Over
+
+Make the final commit and push to `main`, again staging by name: `output/recaps/{file_prefix}_recap_tweet.md`, `output/recaps/{file_prefix}_recap_short.md`, `output/transcriptions/{file_prefix}_meta.json` (it now holds the YouTube URL) and `output/transcriptions/{file_prefix}_transcript_clean.md` (its `youtube_url` is now filled). Same commit style as Step 6.
 
 Then show the user, ready to copy:
 1. The tweet text, with its length.
 2. The Discord/Telegram text.
 3. The links: GitHub page, YouTube video (unlisted), and the title that was used.
+4. The Quily result: the commit in the Quily repo and the ingestion outcome.
+5. The terms you could not verify in Step 2b, if any, so the user can check them.
 
 List what is still manual:
 1. Post the tweet on X.

@@ -25,6 +25,7 @@ from openai import OpenAI
 from tqdm import tqdm
 
 from audio_processor import AudioProcessor
+from clean_transcript import whisper_prompt
 
 
 def create_transcription_client(config: dict) -> tuple:
@@ -238,14 +239,18 @@ def transcribe_audio(
     audio_paths: list[str],
     client,
     model: str = "whisper-large-v3-turbo",
+    prompt: str = "",
 ) -> str:
     """
-    Transcribe audio file(s) using OpenAI Whisper API.
+    Transcribe audio file(s) using the configured Whisper API.
 
     Args:
         audio_paths: List of audio file paths (chunks)
-        client: OpenAI client instance
+        client: OpenAI or Groq client instance
         model: Whisper model to use
+        prompt: Vocabulary hint (correct spellings of Quilibrium terms). It nudges
+            Whisper towards the right names, it does not guarantee them: the
+            glossary pass in clean_transcript.py still runs afterwards.
 
     Returns:
         Combined transcription text
@@ -258,6 +263,7 @@ def transcribe_audio(
                 model=model,
                 file=audio_file,
                 response_format="text",
+                **({"prompt": prompt} if prompt else {}),
             )
             transcriptions.append(response)
 
@@ -499,6 +505,7 @@ Examples:
             chunk_paths,
             client,
             model=model,
+            prompt=whisper_prompt(),
         )
     except Exception as e:
         print(f"Error transcribing: {e}")
