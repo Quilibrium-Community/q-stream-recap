@@ -48,11 +48,13 @@ output/
 ├── downloads/     # Original MP4 files
 ├── audio/         # Extracted MP3 + chunks
 ├── transcriptions/# {video_id}_transcript.txt + {video_id}_meta.json
-└── recaps/        # {video_id}_recap.md
+└── recaps/        # {video_id}_recap.md, _recap_short.md (Discord/Telegram + YouTube description), _recap_tweet.md (fits one tweet), _recap_web.md (GitHub page)
 ```
 
+`_recap_web.md` is real Markdown generated from the plain recap by `python scripts/recap_to_web.py <recap.md>`. It is the file linked from the short version, because X has no long posts and GitHub renders Markdown as a formatted page. Never hand-edit it; fix the plain recap and regenerate.
+
 ### Claude Slash Commands
-- `/Q:video-recap <url>` - Full pipeline: download, transcribe, generate recap, verify
+- `/Q:video-recap <url>` - Full pipeline: download, transcribe, generate recap, verify. After the user approves the recap it also publishes the GitHub page, writes the tweet and chat texts, and uploads to YouTube (unlisted)
 - `/Q:summarize-q-stream` - Generate recap from uploaded transcript
 - `/Q:youtube-upload` - Upload latest video to YouTube
 

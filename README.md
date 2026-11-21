@@ -14,7 +14,7 @@ The workflow has two independent parts:
    - Transcribe audio via OpenAI Whisper API
    - Generate a formatted recap using Claude
    - Verify accuracy against the transcript
-   - Output: full recap + short version for Discord/Telegram
+   - Output: full recap + short version for Discord/Telegram + web version for GitHub
 
 2. **Upload to YouTube** (requires Quilibrium channel access)
    - Upload the video to the Quilibrium YouTube channel
@@ -188,4 +188,4 @@ Recaps follow a specific format for the Quilibrium community:
 - Tone: informative, third person, non-technical focus
 - Project name is always "Quilibrium" (transcription misspellings are auto-corrected)
 
-A short version is also generated for Discord/Telegram sharing.
+After you approve the recap, the workflow publishes a GitHub page (`*_recap_web.md`, real Markdown made by `scripts/recap_to_web.py`, because X has no long posts), then writes a tweet (`*_recap_tweet.md`, checked by `scripts/check_tweet.py`) and a Discord/Telegram text (`*_recap_short.md`), both linking to that page, and uploads the video to YouTube as unlisted. Only posting on X, Discord and Telegram stays manual.

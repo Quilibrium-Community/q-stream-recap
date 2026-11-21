@@ -65,7 +65,7 @@ def format_youtube_description(short_recap: str) -> str:
         filtered.pop(0)
 
     result = "\n".join(filtered).rstrip()
-    result += "\n\n⭐️ Quilibrium links: https://pxl.to/quilibrium"
+    result += "\n\n⭐️ Quilibrium: https://quilibrium.com"
     return result
 
 

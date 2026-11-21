@@ -119,7 +119,7 @@ class YouTubeClient:
             prompt="consent",
             authorization_prompt_message=(
                 "Opening browser for YouTube authorization...\n"
-                "If the browser doesn't open, visit the URL above manually."
+                "If the browser doesn't open, visit this URL manually:\n{url}"
             ),
         )
         logger.info("Fresh authentication completed")
